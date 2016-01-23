@@ -1,0 +1,14 @@
+{
+  "name": "Project1",
+  "version": "0.0.0",
+  "description": "Project1",
+  "main": "server.js",
+  "author": {
+    "name": "David",
+    "email": ""
+  },
+  "dependencies": {
+    "d3": "^3.5.13",
+    "express": "^4.13.3"
+  }
+}
