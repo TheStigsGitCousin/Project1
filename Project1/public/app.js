@@ -1,6 +1,51 @@
-﻿var radius = 380,
+﻿
+Colors = {};
+Colors.names = {
+    aqua: "#00ffff",
+    black: "#000000",
+    blue: "#0000ff",
+    brown: "#a52a2a",
+    darkblue: "#00008b",
+    darkcyan: "#008b8b",
+    darkgrey: "#a9a9a9",
+    darkgreen: "#006400",
+    darkkhaki: "#bdb76b",
+    darkmagenta: "#8b008b",
+    darkolivegreen: "#556b2f",
+    darkorange: "#ff8c00",
+    darkorchid: "#9932cc",
+    darkred: "#8b0000",
+    darksalmon: "#e9967a",
+    darkviolet: "#9400d3",
+    fuchsia: "#ff00ff",
+    gold: "#ffd700",
+    green: "#008000",
+    indigo: "#4b0082",
+    khaki: "#f0e68c",
+    lightblue: "#add8e6",
+    lightcyan: "#e0ffff",
+    lightgreen: "#90ee90",
+    lightgrey: "#d3d3d3",
+    lightpink: "#ffb6c1",
+    lightyellow: "#ffffe0",
+    lime: "#00ff00",
+    magenta: "#ff00ff",
+    maroon: "#800000",
+    navy: "#000080",
+    olive: "#808000",
+    orange: "#ffa500",
+    pink: "#ffc0cb",
+    purple: "#800080",
+    violet: "#800080",
+    red: "#ff0000",
+    silver: "#c0c0c0",
+    white: "#ffffff",
+    yellow: "#ffff00"
+};
+
+var radius = 380,
     lineWidth = 3,
-    margin = 10;
+    margin = 50;
 var offset = radius + margin;
 var width = 2 * offset;
 var coordinates = [];
@@ -79,6 +124,32 @@ d3.tsv("data/data.tsv", function (error, data) {
       .attr("d", function (d) { return line(d); })
       .style("stroke", "gray");
     
+    var typeCircle = chart.selectAll(".typeCircle")
+        .data(lines)
+        .enter()
+        .append("circle");
+    
+    var colors = generateColors(newKeys.length);
+    
+    typeCircle.attr("cx", function (d) { return offset + x(d[1].x); })
+        .attr("cy", function (d) { return offset + x(d[1].y); })
+        .attr("r", 10)
+        .attr("fill", function (d, i) { return colors[i]; })
+        .attr("stroke-width", 3);
+    
+    var legendCircle = chart.selectAll(".legendCircle")
+        .data(newKeys)
+        .enter()
+        .append("circle");
+    
+    var legendRadius = 10;
+   
+    legendCircle.attr("cx", width+35)
+        .attr("cy", function (d, i) { return margin+(50*i)-(legendRadius/2); })
+        .attr("r", legendRadius)
+        .attr("fill", function (d, i) { return colors[i]; })
+        .attr("stroke-width", 3);
+    
     var text = chart.selectAll("text")
                     .data(lines)
                     .enter()
@@ -87,12 +158,7 @@ d3.tsv("data/data.tsv", function (error, data) {
     text.attr("font-size", 15)
         .attr("fill", "black")
         .text(function (d, i) { return newKeys[i]; })
-        .attr("transform", function (d, i) {
-            var a = Math.atan(d[1].y / d[1].x) * (180 / Math.PI);
-            //console.log(newKeys[i] + " " + a.toString()+" "+d[1].x+" "+d[1].y);
-            return "translate(" + (offset + x(d[1].x)).toString() + "," + (offset + x(d[1].y)).toString() + ")rotate(" + (d[1].x<0?a:(a-180)).toString() + ")";
-    })
-        .style("text-anchor", "start");
+        .attr("transform", function (d, i) { return "translate(" + (width+50) + "," + (margin + (50 * i)) + ")"; });
     
     this.path = chart.append("path")
             .attr("id", "personPath")
@@ -105,6 +171,17 @@ d3.tsv("data/data.tsv", function (error, data) {
     UpdateCircleChart(filteredData[0]);
 
 });
+
+function generateColors(total) {
+    var r = []; // hold the generated colors
+    var count = 1;
+    for (var prop in Colors.names) {
+        r.push(Colors.names[prop]);
+        if (count >= total)
+            break;
+    }
+    return r;
+}
 
 function UpdateCircleChart(person){
     var index = 0;
@@ -132,4 +209,3 @@ function inputChanged(value){
     UpdateCircleChart(this.data[value - 1]);
     console.log(value);
 }
-
