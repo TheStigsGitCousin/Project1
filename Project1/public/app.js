@@ -57,7 +57,6 @@ x.domain([0, 1]);
 
 d3.tsv("data/data.tsv", function (error, data) {
     var dataKeys = Object.keys(data[0]);
-    console.log(JSON.stringify(data[0]));
     console.log("Length = " + data.length);
     
     data.forEach(function (item) {
@@ -133,13 +132,14 @@ d3.tsv("data/data.tsv", function (error, data) {
         .attr("fill", function (d, i) { return colors[i]; })
         .attr("stroke-width", 3);
 
-    var gr = new Group("grouppath" + groupList.length, 100);
+    var gr = new Group("grouppath" + groupList.length, { x: 100, y: 100 });
     groupList.push(gr);
     gr.addMember(personList[0]);
     gr.addMember(personList[42]);
-    var gr2 = new Group("grouppath"+groupList.length, 200);
+    var gr2 = new Group("grouppath"+groupList.length, { x: 100, y: 300 });
     groupList.push(gr2);
-    gr2.addMember(personList[12]);    
+    gr2.addMember(personList[12]);
+    gr2.addMember(personList[21]);
 
 });
 
@@ -148,8 +148,8 @@ function createRadarChart(data, offset, line, id) {
     var chart = d3.select("#chart");
     
     chart.append("circle")
-        .attr("cx", offset)
-        .attr("cy", offset)
+        .attr("cx", offset.x)
+        .attr("cy", offset.y)
         .attr("r", radius)
         .attr("fill", "transparent")
         .attr("stroke", "steelblue")
@@ -171,8 +171,8 @@ function createRadarChart(data, offset, line, id) {
          .data(lines)
          .enter()
          .append("circle")
-         .attr("cx", function (d) { return offset + x(d[1].x); })
-         .attr("cy", function (d) { return offset + x(d[1].y); })
+         .attr("cx", function (d) { return offset.x + x(d[1].x); })
+         .attr("cy", function (d) { return offset.y + x(d[1].y); })
          .attr("r", 10)
          .attr("fill", function (d, i) { return colors[i]; })
          .attr("stroke-width", 3);
@@ -211,8 +211,8 @@ function generateColors(total) {
 function Group(id, offset) {
     // create a line function that can convert data[] into x and y points
     this.line = d3.svg.line()
-            .x(function (d) { return offset + x(d.x); })
-            .y(function (d) { return offset + x(d.y); });
+            .x(function (d) { return offset.x + x(d.x); })
+            .y(function (d) { return offset.y + x(d.y); });
 
     this.averageValues = keys.reduce(function (prev, current) { prev.unshift({ name: current, value: 0 }); return prev; }, []);
     this.coordinates = [];
@@ -225,12 +225,9 @@ function Group(id, offset) {
         this.averageValues.forEach(function (item) { 
             item.value = members.reduce(function (prev, current) { return prev + current[item.name]; }, 0) / members.length;
         });
-        
-        console.log(this.averageValues);
 
         updateCoordinates(this.averageValues, this.coordinates);
-        console.log(this.coordinates);
-
+        
         d3.select("#"+this.id)
         .transition()
         .attr("d", this.line)
@@ -244,11 +241,9 @@ function updateCoordinates(averageValues, coordinates) {
     var index = 0;
     var currentAngle = 0,
         angleDelta = ((2 * Math.PI) / keys.length);
-    //console.log(JSON.stringify(person));
     averageValues.forEach(function(item) {
         var c = item.value / 10;
         coordinates[index++] = { x: (Math.cos(currentAngle) * c), y: (Math.sin(currentAngle) * c), name: item.name };
-        //console.log("c = " + JSON.stringify(data[index-1]));
         currentAngle += angleDelta;
     });
     
