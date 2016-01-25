@@ -1,5 +1,5 @@
 ﻿
-Colors = {};
+var Colors = {};
 Colors.names = {
     aqua: "#00ffff",
     black: "#000000",
@@ -43,7 +43,7 @@ Colors.names = {
     yellow: "#ffff00"
 };
 
-var radius = 380,
+var radius = 80,
     lineWidth = 3,
     margin = 50;
 var offset = radius + margin;
@@ -84,9 +84,14 @@ d3.tsv("data/data.tsv", function (error, data) {
         .attr("value", 1);
 
     var chart = d3.select(".chart")
-    .attr("width", width * 2)
-    .attr("height", width);
+    .attr("width", $(window).width())
+    .attr("height", $(window).height());
     
+    var windowWidth = $(window).width(),
+        windowHeight = $(window).height();
+
+    console.log(windowWidth + " " + windowHeight);
+
     chart.append("circle")
         .attr("cx", offset)
         .attr("cy", offset)
@@ -137,28 +142,45 @@ d3.tsv("data/data.tsv", function (error, data) {
         .attr("fill", function (d, i) { return colors[i]; })
         .attr("stroke-width", 3);
     
-    var legendCircle = chart.selectAll(".legendCircle")
+    var drag = d3.behavior.drag()
+    .on("drag", dragmove);
+    
+    function dragmove(d) {
+        var x = d3.event.x;
+        var y = d3.event.y;
+        console.log("drag " + x + " " + y);
+        d3.select(this).attr("transform", "translate(" + x + "," + y + ")");
+    }
+    
+    
+    // Legend creation
+    var legendRadius = 10,
+        legendMargin=50;
+    var textLegend = chart.selectAll("text")
+                          .data(lines)
+                          .enter()
+                          .append("text")
+                          .attr("font-size", 15)
+                          .attr("fill", "black")
+                          .text(function (d, i) { return newKeys[i]; })
+                          .attr("transform", function (d, i) { return "translate(" + (windowWidth - legendMargin) + "," + (margin + (legendMargin * i)) + ")"; })
+                          .attr("text-anchor", "end");
+    
+    var maxw = 0;
+    textLegend.each(function () {
+        if (this.getBBox().width > maxw) maxw = this.getBBox().width;
+    });
+    console.log(maxw);
+    chart.selectAll(".legendCircle")
         .data(newKeys)
         .enter()
-        .append("circle");
-    
-    var legendRadius = 10;
-   
-    legendCircle.attr("cx", width+35)
+        .append("circle")
+        .attr("cx", function (d, i) { return windowWidth - maxw - legendMargin - (2 * legendRadius); })
         .attr("cy", function (d, i) { return margin+(50*i)-(legendRadius/2); })
         .attr("r", legendRadius)
         .attr("fill", function (d, i) { return colors[i]; })
-        .attr("stroke-width", 3);
-    
-    var text = chart.selectAll("text")
-                    .data(lines)
-                    .enter()
-                    .append("text");
-    
-    text.attr("font-size", 15)
-        .attr("fill", "black")
-        .text(function (d, i) { return newKeys[i]; })
-        .attr("transform", function (d, i) { return "translate(" + (width+50) + "," + (margin + (50 * i)) + ")"; });
+        .attr("stroke-width", 3)
+        .call(drag);
     
     this.path = chart.append("path")
             .attr("id", "personPath")
@@ -166,7 +188,7 @@ d3.tsv("data/data.tsv", function (error, data) {
             .attr("d", this.line)
             .style("stroke-width", 2)
             .style("stroke", "steelblue")
-            .style("fill", "none");
+            .style("fill", "rgba(0, 0, 0, 0.8)");
 
     UpdateCircleChart(filteredData[0]);
 
