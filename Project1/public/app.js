@@ -77,6 +77,88 @@ d3.tsv("data/data.tsv", function (error, data) {
         }
     });
     
+    var chart = d3.select("#chart")
+    .attr("width", $(window).width())
+    .attr("height", $(window).height());
+    
+    var margin2 = { top: 20, right: 20, bottom: 30, left: 40 },
+        width2 = 960 - margin2.left - margin2.right,
+        height2 = 500 - margin2.top - margin2.bottom;
+    
+    var x2 = d3.scale.linear().range([0, width2]);
+    
+    var y2 = d3.scale.linear()
+    .rangeRound([height2, 0]);
+    
+    var color = d3.scale.ordinal()
+    .range(generateColors(keys.length));
+    
+    var xAxis = d3.svg.axis()
+    .scale(x2)
+    .orient("bottom");
+    
+    var yAxis = d3.svg.axis()
+    .scale(y2)
+    .orient("left")
+    .tickFormat(d3.format(".2s"));
+    
+    var svg = chart.append("g")
+    .attr("width", width2 + margin2.left + margin2.right)
+    .attr("height", height2 + margin2.top + margin2.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
+    
+    color.domain(keys);
+    
+    var data2=[];  
+    data.forEach(function (d) {
+        var item= {};
+        var y0 = 0;
+        item.ages = color.domain().map(function (name) { return { name: name, y0: y0, y1: y0 += +d[name] }; });
+        item.total = item.ages[item.ages.length - 1].y1;
+        data2.unshift(item);
+    });
+    
+    data2.sort(function (a, b) { return b.total - a.total; });
+        
+    x2.domain([0, data.length]);
+    y2.domain([0, d3.max(data2, function (d) { return d.total; })]);
+        
+    svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height2 + ")")
+    .call(xAxis);
+        
+    svg.append("g")
+    .attr("class", "y axis")
+    .call(yAxis)
+.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", 6)
+    .attr("dy", ".71em")
+    .style("text-anchor", "end")
+    .text("Population");
+        
+    var state = svg.selectAll(".state")
+    .data(data2)
+    .enter().append("g")
+    .attr("class", "g")
+    .attr("transform", function (d, i) { return "translate(" + x2(i) + ",0)"; });
+        
+    state.selectAll("rect")
+    .data(function (d) { return d.ages; })
+    .enter().append("rect")
+    .attr("width", 10)
+    .attr("y", function (d) { return y2(d.y1); })
+    .attr("height", function (d) { return y2(d.y0) - y2(d.y1); })
+    .style("fill", function (d) { return color(d.name); });
+        
+    var legend = svg.selectAll(".legend")
+    .data(color.domain().slice().reverse())
+    .enter().append("g")
+    .attr("class", "legend")
+    .attr("transform", function (d, i) { return "translate(0," + i * 20 + ")"; });
+    
     var offset = radius + margin;
     var width = 2 * offset;
     
@@ -88,16 +170,7 @@ d3.tsv("data/data.tsv", function (error, data) {
         lines[index++] = [{ x: 0, y: 0 }, { x: (Math.cos(angle)), y: (Math.sin(angle)) }];
         angle += angleDelta;
     }
-   
-    d3.select(".slider")
-        .attr("max", data.length)
-        .attr("min", 1)
-        .attr("value", 1);
 
-    var chart = d3.select("#chart")
-    .attr("width", $(window).width())
-    .attr("height", $(window).height());
-    
     var windowWidth = $(window).width(),
         windowHeight = $(window).height();
 
@@ -107,8 +180,9 @@ d3.tsv("data/data.tsv", function (error, data) {
     var legendRadius = 10,
         legendMargin = 50,
         colors = generateColors(keys.length);
-
-    var textLegend = chart.selectAll("text")
+    
+    var legend = chart.append("g");
+    var textLegend = legend.append("g").selectAll("text")
                           .data(keys)
                           .enter()
                           .append("text")
@@ -122,7 +196,7 @@ d3.tsv("data/data.tsv", function (error, data) {
     textLegend.each(function () {
         if (this.getBBox().width > maxw) maxw = this.getBBox().width;
     });
-    chart.selectAll(".legendCircle")
+    legend.append("g").selectAll(".legendCircle")
         .data(keys)
         .enter()
         .append("circle")
@@ -131,6 +205,16 @@ d3.tsv("data/data.tsv", function (error, data) {
         .attr("r", legendRadius)
         .attr("fill", function (d, i) { return colors[i]; })
         .attr("stroke-width", 3);
+    
+    var drag = d3.behavior.drag()
+    .on("drag", dragmove);
+    
+    function dragmove(d) {
+        var x = d3.event.x;
+        var y = d3.event.y;
+        console.log("drag " + x + " " + y);
+        d3.select(this).attr("transform", "translate(" + x + "," + y + ")");
+    }
 
     var gr = new Group("grouppath" + groupList.length, { x: 100, y: 100 });
     groupList.push(gr);
@@ -145,7 +229,7 @@ d3.tsv("data/data.tsv", function (error, data) {
 
 
 function createRadarChart(data, offset, line, id) {
-    var chart = d3.select("#chart");
+    var chart = d3.select("#chart").append("g");
     
     chart.append("circle")
         .attr("cx", offset.x)
@@ -156,10 +240,9 @@ function createRadarChart(data, offset, line, id) {
         .attr("stroke-width", 3);
   
     // Create the lines that goes from the middle of the chart and out
-    chart.selectAll(".radiusline")
+    chart.append("g").selectAll(".radiusline")
          .data(lines)
          .enter()
-         .append("g")
          .append("path")
          .attr("d", function (d) { return line(d); })
          .style("stroke", "gray");
@@ -167,7 +250,7 @@ function createRadarChart(data, offset, line, id) {
     // Generate the colors
     var colors = generateColors(keys.length);
     // Create the circles at the end of the lines, that represents the different keys ("questions")
-    chart.selectAll(".typeCircle")
+    chart.append("g").selectAll(".typeCircle")
          .data(lines)
          .enter()
          .append("circle")
@@ -177,16 +260,8 @@ function createRadarChart(data, offset, line, id) {
          .attr("fill", function (d, i) { return colors[i]; })
          .attr("stroke-width", 3);
     
-    var drag = d3.behavior.drag()
-    .on("drag", dragmove);
-    
-    function dragmove(d) {
-        var x = d3.event.x;
-        var y = d3.event.y;
-        console.log("drag " + x + " " + y);
-        d3.select(this).attr("transform", "translate(" + x + "," + y + ")");
-    }
-    chart.append("path")
+    chart.append("g")
+         .append("path")
          .attr("id", id)
          .datum(data)
          .attr("d", line)
@@ -222,7 +297,7 @@ function Group(id, offset) {
     this.addMember = function (person) {
         this.members.push(person);
         var members = this.members;
-        this.averageValues.forEach(function (item) { 
+        this.averageValues.forEach(function (item) {
             item.value = members.reduce(function (prev, current) { return prev + current[item.name]; }, 0) / members.length;
         });
 
