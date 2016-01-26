@@ -79,7 +79,7 @@ d3.tsv("data/data.tsv", function (error, data) {
     
     var chart = d3.select("#chart")
     .attr("width", $(window).width())
-    .attr("height", $(window).height());
+    .attr("height", $(window).height()*1.3);
     
     var margin2 = { top: 20, right: 20, bottom: 30, left: 40 },
         width2 = 960 - margin2.left - margin2.right,
@@ -105,8 +105,8 @@ d3.tsv("data/data.tsv", function (error, data) {
     var svg = chart.append("g")
     .attr("width", width2 + margin2.left + margin2.right)
     .attr("height", height2 + margin2.top + margin2.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
+    .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")")
+    .attr("id", "scatterchart");
     
     color.domain(keys);
     
@@ -153,11 +153,11 @@ d3.tsv("data/data.tsv", function (error, data) {
     .attr("height", function (d) { return y2(d.y0) - y2(d.y1); })
     .style("fill", function (d) { return color(d.name); });
         
-    var legend = svg.selectAll(".legend")
-    .data(color.domain().slice().reverse())
-    .enter().append("g")
-    .attr("class", "legend")
-    .attr("transform", function (d, i) { return "translate(0," + i * 20 + ")"; });
+    //var legend = svg.selectAll(".legend")
+    //.data(color.domain().slice().reverse())
+    //.enter().append("g")
+    //.attr("class", "legend")
+    //.attr("transform", function (d, i) { return "translate(0," + i * 20 + ")"; });
     
     var offset = radius + margin;
     var width = 2 * offset;
@@ -178,7 +178,7 @@ d3.tsv("data/data.tsv", function (error, data) {
     
     // Legend creation
     var legendRadius = 10,
-        legendMargin = 50,
+        legendMargin = 30,
         colors = generateColors(keys.length);
     
     var legend = chart.append("g");
@@ -189,8 +189,8 @@ d3.tsv("data/data.tsv", function (error, data) {
                           .attr("font-size", 15)
                           .attr("fill", "black")
                           .text(function (d, i) { return d; })
-                          .attr("transform", function (d, i) { return "translate(" + (windowWidth - legendMargin) + "," + (margin + (legendMargin * i)) + ")"; })
-                          .attr("text-anchor", "end");
+                          .attr("transform", function (d, i) { return "translate(" + (legendMargin+(legendRadius*1.5)) + "," + (height2+ (margin*2) + (legendMargin * i)) + ")"; })
+                          .attr("text-anchor", "start");
     
     var maxw = 0;
     textLegend.each(function () {
@@ -200,8 +200,8 @@ d3.tsv("data/data.tsv", function (error, data) {
         .data(keys)
         .enter()
         .append("circle")
-        .attr("cx", function (d, i) { return windowWidth - maxw - legendMargin - (2 * legendRadius); })
-        .attr("cy", function (d, i) { return margin + (50 * i) - (legendRadius / 2); })
+        .attr("cx", function (d, i) { return legendMargin })
+        .attr("cy", function (d, i) { return height2+ (margin * 2) + (legendMargin * i) - (legendRadius / 2); })
         .attr("r", legendRadius)
         .attr("fill", function (d, i) { return colors[i]; })
         .attr("stroke-width", 3);
@@ -215,21 +215,30 @@ d3.tsv("data/data.tsv", function (error, data) {
         console.log("drag " + x + " " + y);
         d3.select(this).attr("transform", "translate(" + x + "," + y + ")");
     }
-
-    var gr = new Group("grouppath" + groupList.length, { x: 100, y: 100 });
-    groupList.push(gr);
-    gr.addMember(personList[0]);
-    gr.addMember(personList[42]);
-    var gr2 = new Group("grouppath"+groupList.length, { x: 100, y: 300 });
-    groupList.push(gr2);
-    gr2.addMember(personList[12]);
-    gr2.addMember(personList[21]);
+    
+    d3.select("#chart").append("g")
+        .attr("transform", "translate(" + (svg.node().getBBox().width+(3*margin)) + ","+(2*margin)+")")
+        .attr("id", "groupchart");
+    
+    
+    for (var c = 0; c < 3; c++) {
+        for (var r = 0; r < 4; r++) {
+            var gr = new Group("grouppath" + groupList.length, { x: c * (margin + (radius * 2)), y: r * (margin + (radius * 2)) });
+            groupList.push(gr);
+        }
+    }
+    //gr.addMember(personList[0]);
+    //gr.addMember(personList[42]);
+    //var gr2 = new Group("grouppath"+groupList.length, { x: 100, y: 300 });
+    //groupList.push(gr2);
+    //gr2.addMember(personList[12]);
+    //gr2.addMember(personList[21]);
 
 });
 
 
 function createRadarChart(data, offset, line, id) {
-    var chart = d3.select("#chart").append("g");
+    var chart = d3.select("#groupchart");
     
     chart.append("circle")
         .attr("cx", offset.x)
