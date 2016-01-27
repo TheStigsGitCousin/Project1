@@ -55,6 +55,9 @@ var x = d3.scale.linear()
             .range([0, radius]);
 x.domain([0, 1]);
 
+var selectedNode = null;
+var detailData = [];
+
 d3.tsv("data/data.tsv", function (error, data) {
     var dataKeys = Object.keys(data[0]);
     console.log("Length = " + data.length);
@@ -68,7 +71,7 @@ d3.tsv("data/data.tsv", function (error, data) {
                 newItem[key] = val;
             }
         });
-        personList.unshift(newItem);
+        //personList.unshift(newItem);
     });
     
     dataKeys.forEach(function (key, i) {
@@ -77,87 +80,40 @@ d3.tsv("data/data.tsv", function (error, data) {
         }
     });
     
-    var chart = d3.select("#chart")
-    .attr("width", $(window).width())
-    .attr("height", $(window).height()*1.3);
     
     var margin2 = { top: 20, right: 20, bottom: 30, left: 40 },
-        width2 = 960 - margin2.left - margin2.right,
-        height2 = 500 - margin2.top - margin2.bottom;
-    
-    var x2 = d3.scale.linear().range([0, width2]);
-    
-    var y2 = d3.scale.linear()
-    .rangeRound([height2, 0]);
-    
-    var color = d3.scale.ordinal()
-    .range(generateColors(keys.length));
-    
-    var xAxis = d3.svg.axis()
-    .scale(x2)
-    .orient("bottom");
-    
-    var yAxis = d3.svg.axis()
-    .scale(y2)
-    .orient("left")
-    .tickFormat(d3.format(".2s"));
-    
+        width2 = 500 - margin2.left - margin2.right,
+        height2 = (data.length * 50) + margin2.top + margin2.bottom;
+    var chart = d3.select("#chart")
+    .attr("width", $(window).width())
+    .attr("height", height2);
     var svg = chart.append("g")
     .attr("width", width2 + margin2.left + margin2.right)
-    .attr("height", height2 + margin2.top + margin2.bottom)
+    .attr("height", height2)
     .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")")
-    .attr("id", "scatterchart");
+    .attr("id", "scatterchart")
     
-    color.domain(keys);
+    var x2 = d3.scale.linear().range([0, width2]);
+    var y2 = d3.scale.linear().rangeRound([height2, 0]);
     
-    var data2=[];  
     data.forEach(function (d) {
-        var item= {};
-        var y0 = 0;
-        item.ages = color.domain().map(function (name) { return { name: name, y0: y0, y1: y0 += +d[name] }; });
-        item.total = item.ages[item.ages.length - 1].y1;
-        data2.unshift(item);
+        var item = {};
+        var x0 = 0;
+        item.values = keys.reduce(function (prev, current) { prev[current] = +d[current]; x0 += (+d[current]); return prev; }, {});
+        item.total = x0;
+        item.id = personList.length;
+        personList.unshift(item);
     });
+
+    x2.domain([0, d3.max(personList, function (d) { return d.total; })]);
+    y2.domain([0, data.length]);
     
-    data2.sort(function (a, b) { return b.total - a.total; });
-        
-    x2.domain([0, data.length]);
-    y2.domain([0, d3.max(data2, function (d) { return d.total; })]);
-        
-    svg.append("g")
-    .attr("class", "x axis")
-    .attr("transform", "translate(0," + height2 + ")")
-    .call(xAxis);
-        
-    svg.append("g")
-    .attr("class", "y axis")
-    .call(yAxis)
-.append("text")
-    .attr("transform", "rotate(-90)")
-    .attr("y", 6)
-    .attr("dy", ".71em")
-    .style("text-anchor", "end")
-    .text("Population");
-        
-    var state = svg.selectAll(".state")
-    .data(data2)
-    .enter().append("g")
-    .attr("class", "g")
-    .attr("transform", function (d, i) { return "translate(" + x2(i) + ",0)"; });
-        
-    state.selectAll("rect")
-    .data(function (d) { return d.ages; })
-    .enter().append("rect")
-    .attr("width", 10)
-    .attr("y", function (d) { return y2(d.y1); })
-    .attr("height", function (d) { return y2(d.y0) - y2(d.y1); })
-    .style("fill", function (d) { return color(d.name); });
-        
-    //var legend = svg.selectAll(".legend")
-    //.data(color.domain().slice().reverse())
-    //.enter().append("g")
-    //.attr("class", "legend")
-    //.attr("transform", function (d, i) { return "translate(0," + i * 20 + ")"; });
+    var drag = d3.behavior.drag()
+    .on("drag", dragmove)
+    .on("dragend", dragend);
+    //.origin(function (d, i) { return { x: 10, y: (personList.length-i) }; });
+    
+    updatePersonList();
     
     var offset = radius + margin;
     var width = 2 * offset;
@@ -178,71 +134,127 @@ d3.tsv("data/data.tsv", function (error, data) {
     
     // Legend creation
     var legendRadius = 10,
-        legendMargin = 30,
+        legendMargin = 50,
         colors = generateColors(keys.length);
-    
     var legend = chart.append("g");
-    var textLegend = legend.append("g").selectAll("text")
+    var textLegend = legend.append("g").selectAll(".legendtext")
                           .data(keys)
                           .enter()
                           .append("text")
                           .attr("font-size", 15)
                           .attr("fill", "black")
                           .text(function (d, i) { return d; })
-                          .attr("transform", function (d, i) { return "translate(" + (legendMargin+(legendRadius*1.5)) + "," + (height2+ (margin*2) + (legendMargin * i)) + ")"; })
-                          .attr("text-anchor", "start");
+                          .attr("transform", function (d, i) { return "translate(" + (windowWidth - legendMargin) + "," + (margin + (legendMargin * i)) + ")"; })
+                          .attr("text-anchor", "end");
     
     var maxw = 0;
     textLegend.each(function () {
         if (this.getBBox().width > maxw) maxw = this.getBBox().width;
     });
+    //console.log(maxw);
     legend.append("g").selectAll(".legendCircle")
         .data(keys)
         .enter()
         .append("circle")
-        .attr("cx", function (d, i) { return legendMargin })
-        .attr("cy", function (d, i) { return height2+ (margin * 2) + (legendMargin * i) - (legendRadius / 2); })
+        .attr("cx", function (d, i) { return windowWidth - maxw - legendMargin - (2 * legendRadius); })
+        .attr("cy", function (d, i) { return margin + (50 * i) - (legendRadius / 2); })
         .attr("r", legendRadius)
         .attr("fill", function (d, i) { return colors[i]; })
-        .attr("stroke-width", 3);
-    
-    var drag = d3.behavior.drag()
-    .on("drag", dragmove);
-    
-    function dragmove(d) {
-        var x = d3.event.x;
-        var y = d3.event.y;
-        console.log("drag " + x + " " + y);
-        d3.select(this).attr("transform", "translate(" + x + "," + y + ")");
-    }
+        .attr("stroke-width", 3)
     
     d3.select("#chart").append("g")
         .attr("transform", "translate(" + (svg.node().getBBox().width+(3*margin)) + ","+(2*margin)+")")
         .attr("id", "groupchart");
     
-    
-    for (var c = 0; c < 3; c++) {
-        for (var r = 0; r < 4; r++) {
+    var totalGroups = Math.floor((data.length) / 6);
+    var maxCol = Math.floor(Math.sqrt(totalGroups)), maxRow = Math.ceil(totalGroups / maxCol);
+    for (var c = 0; c < maxCol; c++) {
+        for (var r = 0; r < maxRow && groupList.length<totalGroups; r++) {
             var gr = new Group("grouppath" + groupList.length, { x: c * (margin + (radius * 2)), y: r * (margin + (radius * 2)) });
             groupList.push(gr);
         }
     }
-    //gr.addMember(personList[0]);
-    //gr.addMember(personList[42]);
-    //var gr2 = new Group("grouppath"+groupList.length, { x: 100, y: 300 });
-    //groupList.push(gr2);
-    //gr2.addMember(personList[12]);
-    //gr2.addMember(personList[21]);
+    
+    var textHeight = 20;
+    chart.append("g").attr("id", "detailview")
+        .selectAll(".hovertext")
+        .data(keys)
+        .enter().append("text")
+        .attr("fill", "red")
+        .attr("transform", function (d, i) { return "translate(0," + (i * textHeight) + ")"; });
+    
+    function updatePersonList(){
+        y2.domain([0, personList.length]);
+
+        var barHeight = 30;
+        var stateSel = svg.selectAll(".state")
+            .data(personList)
+        
+        var state = stateSel.enter()
+        .append("g")
+        .attr("class", "state")
+        .call(drag)
+        .on("mouseenter", function (d) {
+            d3.select("#detailview")
+            .attr("transform", "translate(" + d3.mouse(d3.select("#chart").node()) + ")")
+            .selectAll("text").text(function (p) { return p + " " + d.values[p];});
+        });
+        
+        stateSel.exit().remove();
+
+        stateSel.attr("transform", function (d, i) { return "translate(0," + (50 * (personList.length - i)) + ")"; });
+        
+        state.append("rect")
+        .attr("width", function (d) { return x2(d.total); })
+        .attr("x", 10)
+        .attr("height", barHeight)
+        .style("fill", "lightgray");
+        state.append("text")
+        .attr("x", 15)
+        .attr("y", barHeight / 2)
+        .attr("dy", ".35em")
+        .text(function (d, i) { return "Person " + d.id.toString() + " "+i+" " + " total score = " + d.total.toString(); })
+        .attr("text-anchor", "start");
+    }
+
+    function dragmove(d, i) {
+        var x = d3.event.x;
+        var y = d3.event.y;
+        //console.log("drag " + x + " " + y + " " + i);
+        //personList.splice(i, 1);
+        //updatePersonList();
+        d3.select(this).attr("transform", "translate(" + x + "," + y + ")");
+    }
+
+    function dragend(d, i) {
+        if (selectedNode) {
+            var person = personList.filter(function (p) { return p === d; })[0];
+            var group = groupList.filter(function (p) { return p.coordinates === selectedNode; })[0];
+            console.log("PERSON: " + JSON.stringify(person));
+            group.addMember(person);
+            var removed = personList.splice(i, 1);
+            console.log("REMOVED: " + JSON.stringify(removed));
+            console.log("REMOVED: " + personList.indexOf(removed[0]));
+            updatePersonList();
+        } else {
+            d3.select(this).attr("transform", "translate(0,0)");
+        }
+        
+    }
 
 });
 
 
 function createRadarChart(data, offset, line, id) {
-    var chart = d3.select("#groupchart");
+    var chart = d3.select("#groupchart")
+        .append("g")
+         .datum(data)
+        .attr("class", "radarchart")
+        .attr("transform", "translate(" + offset.x + "," + offset.y + ")")
+        .on("mouseover", function (node) { selectedNode = node; })
+        .on("mouseout", function (node) { selectedNode = null; });
     
     chart.append("circle")
-        .attr("cx", offset.x)
-        .attr("cy", offset.y)
         .attr("r", radius)
         .attr("fill", "transparent")
         .attr("stroke", "steelblue")
@@ -263,8 +275,8 @@ function createRadarChart(data, offset, line, id) {
          .data(lines)
          .enter()
          .append("circle")
-         .attr("cx", function (d) { return offset.x + x(d[1].x); })
-         .attr("cy", function (d) { return offset.y + x(d[1].y); })
+         .attr("cx", function (d) { return x(d[1].x); })
+         .attr("cy", function (d) { return x(d[1].y); })
          .attr("r", 10)
          .attr("fill", function (d, i) { return colors[i]; })
          .attr("stroke-width", 3);
@@ -272,7 +284,6 @@ function createRadarChart(data, offset, line, id) {
     chart.append("g")
          .append("path")
          .attr("id", id)
-         .datum(data)
          .attr("d", line)
          .style("stroke-width", 2)
          .style("stroke", "steelblue")
@@ -295,8 +306,8 @@ function generateColors(total) {
 function Group(id, offset) {
     // create a line function that can convert data[] into x and y points
     this.line = d3.svg.line()
-            .x(function (d) { return offset.x + x(d.x); })
-            .y(function (d) { return offset.y + x(d.y); });
+            .x(function (d) { return x(d.x); })
+            .y(function (d) { return x(d.y); });
 
     this.averageValues = keys.reduce(function (prev, current) { prev.unshift({ name: current, value: 0 }); return prev; }, []);
     this.coordinates = [];
@@ -307,15 +318,15 @@ function Group(id, offset) {
         this.members.push(person);
         var members = this.members;
         this.averageValues.forEach(function (item) {
-            item.value = members.reduce(function (prev, current) { return prev + current[item.name]; }, 0) / members.length;
+            item.value = members.reduce(function (prev, current) { return prev + current.values[item.name]; }, 0) / members.length;
         });
 
+        console.log("AVERAGE: "+JSON.stringify(this.averageValues));
         updateCoordinates(this.averageValues, this.coordinates);
-        
         d3.select("#"+this.id)
         .transition()
         .attr("d", this.line)
-        .duration(150)
+        .duration(1000)
         .ease("linear")
         .attr("transform", null);
     }
