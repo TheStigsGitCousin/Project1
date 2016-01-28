@@ -35,6 +35,10 @@
   <ItemGroup>
     <Compile Include="public\app.js" />
     <Compile Include="server.js" />
+    <Content Include="bin\ChangeConfig.ps1" />
+    <Content Include="bin\download.ps1" />
+    <Content Include="bin\node.cmd" />
+    <Content Include="bin\setup_web.cmd" />
     <Content Include="package.json" />
     <Content Include="public\app.css" />
     <Content Include="public\data\data.tsv" />
