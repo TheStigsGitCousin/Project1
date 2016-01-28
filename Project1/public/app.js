@@ -1,44 +1,44 @@
 ﻿
 var Colors = {};
 Colors.names = {
-    aqua: "#00ffff",
-    black: "#000000",
-    blue: "#0000ff",
-    brown: "#a52a2a",
+    darkorchid: "#9932cc",
+    gold: "#ffd700",
+    lightblue: "#add8e6",
+    navy: "#000080",
+    orange: "#ffa500",
+    fuchsia: "#ff00ff",
+    maroon: "#800000",
+    lime: "#00ff00",
+    darkkhaki: "#bdb76b",
+    violet: "#800080",
     darkblue: "#00008b",
     darkcyan: "#008b8b",
-    darkgrey: "#a9a9a9",
     darkgreen: "#006400",
-    darkkhaki: "#bdb76b",
+    red: "#ff0000",
     darkmagenta: "#8b008b",
     darkolivegreen: "#556b2f",
+    lightcyan: "#e0ffff",
     darkorange: "#ff8c00",
-    darkorchid: "#9932cc",
     darkred: "#8b0000",
     darksalmon: "#e9967a",
     darkviolet: "#9400d3",
-    fuchsia: "#ff00ff",
-    gold: "#ffd700",
+    darkgrey: "#a9a9a9",
+    silver: "#c0c0c0",
     green: "#008000",
-    indigo: "#4b0082",
+    aqua: "#00ffff",
+    brown: "#a52a2a",
+    black: "#000000",
     khaki: "#f0e68c",
-    lightblue: "#add8e6",
-    lightcyan: "#e0ffff",
+    indigo: "#4b0082",
     lightgreen: "#90ee90",
+    blue: "#0000ff",
     lightgrey: "#d3d3d3",
     lightpink: "#ffb6c1",
     lightyellow: "#ffffe0",
-    lime: "#00ff00",
     magenta: "#ff00ff",
-    maroon: "#800000",
-    navy: "#000080",
     olive: "#808000",
-    orange: "#ffa500",
     pink: "#ffc0cb",
     purple: "#800080",
-    violet: "#800080",
-    red: "#ff0000",
-    silver: "#c0c0c0",
     white: "#ffffff",
     yellow: "#ffff00"
 };
@@ -57,6 +57,10 @@ x.domain([0, 1]);
 
 var selectedNode = null;
 var detailData = [];
+var isDragging = false;
+// Generate the colors
+var colors = null;
+var updatePL = null;
 
 d3.tsv("data/data.tsv", function (error, data) {
     var dataKeys = Object.keys(data[0]);
@@ -67,7 +71,7 @@ d3.tsv("data/data.tsv", function (error, data) {
         var ind = 0;
         dataKeys.forEach(function (key, i) {
             var val = +item[key];
-            if ((item[key]!="") && !isNaN(val)) {
+            if ((item[key] != "") && !isNaN(val)) {
                 newItem[key] = val;
             }
         });
@@ -75,7 +79,7 @@ d3.tsv("data/data.tsv", function (error, data) {
     });
     
     dataKeys.forEach(function (key, i) {
-        if (data[0][key]!="" && !isNaN(+data[0][key])) {
+        if (data[0][key] != "" && !isNaN(+data[0][key])) {
             keys.push(key);
         }
     });
@@ -99,19 +103,22 @@ d3.tsv("data/data.tsv", function (error, data) {
     data.forEach(function (d) {
         var item = {};
         var x0 = 0;
-        item.values = keys.reduce(function (prev, current) { prev[current] = +d[current]; x0 += (+d[current]); return prev; }, {});
+        item.values = keys.reduce(function (prev, current) { prev.push({ x0: x0, x1: x0 += +d[current], value: +d[current], name: current }); return prev; }, []);
         item.total = x0;
         item.id = personList.length;
         personList.unshift(item);
     });
-
+    
     x2.domain([0, d3.max(personList, function (d) { return d.total; })]);
     y2.domain([0, data.length]);
     
     var drag = d3.behavior.drag()
     .on("drag", dragmove)
+    .on("dragstart", function (d) { isDragging = true; })
     .on("dragend", dragend);
     //.origin(function (d, i) { return { x: 10, y: (personList.length-i) }; });
+
+    colors = generateColors(keys);
     
     updatePersonList();
     
@@ -123,19 +130,20 @@ d3.tsv("data/data.tsv", function (error, data) {
     var index = 0;
     var max = 2 * Math.PI;
     while (angle < max) {
-        lines[index++] = [{ x: 0, y: 0 }, { x: (Math.cos(angle)), y: (Math.sin(angle)) }];
+        lines[index] = [{ x: 0, y: 0 }, { x: (Math.cos(angle)), y: (Math.sin(angle)) }, keys[index]];
+        index++;
         angle += angleDelta;
     }
-
+    
     var windowWidth = $(window).width(),
         windowHeight = $(window).height();
-
+    
     console.log(windowWidth + " " + windowHeight);
     
     // Legend creation
     var legendRadius = 10,
-        legendMargin = 50,
-        colors = generateColors(keys.length);
+        legendMargin = 50;
+
     var legend = chart.append("g");
     var textLegend = legend.append("g").selectAll(".legendtext")
                           .data(keys)
@@ -159,32 +167,40 @@ d3.tsv("data/data.tsv", function (error, data) {
         .attr("cx", function (d, i) { return windowWidth - maxw - legendMargin - (2 * legendRadius); })
         .attr("cy", function (d, i) { return margin + (50 * i) - (legendRadius / 2); })
         .attr("r", legendRadius)
-        .attr("fill", function (d, i) { return colors[i]; })
+        .attr("fill", function (d, i) { return colors[d]; })
         .attr("stroke-width", 3)
     
     d3.select("#chart").append("g")
-        .attr("transform", "translate(" + (svg.node().getBBox().width+(3*margin)) + ","+(2*margin)+")")
+        .attr("transform", "translate(" + (svg.node().getBBox().width + (3 * margin)) + "," + (2 * margin) + ")")
         .attr("id", "groupchart");
     
     var totalGroups = Math.floor((data.length) / 6);
     var maxCol = Math.floor(Math.sqrt(totalGroups)), maxRow = Math.ceil(totalGroups / maxCol);
     for (var c = 0; c < maxCol; c++) {
-        for (var r = 0; r < maxRow && groupList.length<totalGroups; r++) {
+        for (var r = 0; r < maxRow && groupList.length < totalGroups; r++) {
             var gr = new Group("grouppath" + groupList.length, { x: c * (margin + (radius * 2)), y: r * (margin + (radius * 2)) });
             groupList.push(gr);
         }
     }
     
     var textHeight = 20;
-    chart.append("g").attr("id", "detailview")
+    chart.append("g")
+        .attr("id", "detailview")
+        .append("rect")
+        .attr("id", "colorrect")
+        .attr("fill", "darkgray");
+    d3.select("#detailview")
         .selectAll(".hovertext")
         .data(keys)
         .enter().append("text")
-        .attr("fill", "red")
+        .attr("fill", "white")
         .attr("transform", function (d, i) { return "translate(0," + (i * textHeight) + ")"; });
     
-    function updatePersonList(){
+    
+    function updatePersonList() {
         y2.domain([0, personList.length]);
+        
+        console.log("ID:"+personList.reduce(function(prev, curr) { prev.push(curr.id); return prev; }, []));
 
         var barHeight = 30;
         var stateSel = svg.selectAll(".state")
@@ -195,27 +211,53 @@ d3.tsv("data/data.tsv", function (error, data) {
         .attr("class", "state")
         .call(drag)
         .on("mouseenter", function (d) {
-            d3.select("#detailview")
-            .attr("transform", "translate(" + d3.mouse(d3.select("#chart").node()) + ")")
-            .selectAll("text").text(function (p) { return p + " " + d.values[p];});
+            if (!isDragging) {
+                var size = d3.mouse(d3.select("#chart").node());
+                var text = d3.select("#detailview")
+            .attr("transform", "translate(" + size[0] + "," + (size[1] + 30) + ")")
+            .selectAll("text").text(function (p) { return p + " " + findSingleItem(d.values, "name", p).value; });
+                
+                //console.log(d3.mouse(d3.select("#chart").node()));
+                var maxw = 0;
+                text.each(function () {
+                    if (this.getBBox().width > maxw) maxw = this.getBBox().width;
+                });
+                d3.select("#colorrect")
+                .attr("width", maxw + 10)
+                .attr("y", -20)
+                .attr("height", (keys.length * textHeight) + 20);
+                
+                d3.select("#detailview")
+                    .style("opacity", 1)
+                    .transition()
+                    .delay(5000)
+                    .style("opacity", 0)
+                    .style('pointer-events', 'none');
+            }
         });
         
         stateSel.exit().remove();
 
         stateSel.attr("transform", function (d, i) { return "translate(0," + (50 * (personList.length - i)) + ")"; });
         
-        state.append("rect")
-        .attr("width", function (d) { return x2(d.total); })
-        .attr("x", 10)
-        .attr("height", barHeight)
-        .style("fill", "lightgray");
-        state.append("text")
-        .attr("x", 15)
+        state.selectAll("#text")
+        .append("text")
+        .attr("x", -15)
         .attr("y", barHeight / 2)
         .attr("dy", ".35em")
-        .text(function (d, i) { return "Person " + d.id.toString() + " "+i+" " + " total score = " + d.total.toString(); })
+        .text(function (d, i) { return d.id.toString(); })
         .attr("text-anchor", "start");
+        state.selectAll("rect")
+        .data(function (d) { return d.values; })
+        .enter()
+        .append("rect")
+        .attr("width", function (d) { return x2(d.x1) - x2(d.x0); })
+        .attr("x", function (d) { return x2(d.x0);})
+        .attr("height", barHeight)
+        .style("fill", function (d) { return colors[d.name]; });
     }
+    
+    updatePL = updatePersonList;
 
     function dragmove(d, i) {
         var x = d3.event.x;
@@ -227,6 +269,7 @@ d3.tsv("data/data.tsv", function (error, data) {
     }
 
     function dragend(d, i) {
+        isDragging = false;
         if (selectedNode) {
             var person = personList.filter(function (p) { return p === d; })[0];
             var group = groupList.filter(function (p) { return p.coordinates === selectedNode; })[0];
@@ -244,6 +287,10 @@ d3.tsv("data/data.tsv", function (error, data) {
 
 });
 
+function findSingleItem(array, property, value){
+    return array.filter(function (d) { return d[property] == value; }).shift();
+}
+
 
 function createRadarChart(data, offset, line, id) {
     var chart = d3.select("#groupchart")
@@ -252,7 +299,18 @@ function createRadarChart(data, offset, line, id) {
         .attr("class", "radarchart")
         .attr("transform", "translate(" + offset.x + "," + offset.y + ")")
         .on("mouseover", function (node) { selectedNode = node; })
-        .on("mouseout", function (node) { selectedNode = null; });
+        .on("mouseout", function (node) { selectedNode = null; })
+        .on("contextmenu", function (d, i) {
+            console.log(JSON.stringify(d));
+        if (d.length > 0) {
+            var group = groupList.filter(function (p) { return p.coordinates === d; }).shift();
+            console.log(JSON.stringify(group.id));
+            group.removeMember();
+            updatePL();
+        }
+            //stop showing browser menu
+            d3.event.preventDefault();
+    });
     
     chart.append("circle")
         .attr("r", radius)
@@ -265,11 +323,9 @@ function createRadarChart(data, offset, line, id) {
          .data(lines)
          .enter()
          .append("path")
-         .attr("d", function (d) { return line(d); })
+         .attr("d", function (d) { return line([d[0], d[1]]); })
          .style("stroke", "gray");
     
-    // Generate the colors
-    var colors = generateColors(keys.length);
     // Create the circles at the end of the lines, that represents the different keys ("questions")
     chart.append("g").selectAll(".typeCircle")
          .data(lines)
@@ -278,7 +334,7 @@ function createRadarChart(data, offset, line, id) {
          .attr("cx", function (d) { return x(d[1].x); })
          .attr("cy", function (d) { return x(d[1].y); })
          .attr("r", 10)
-         .attr("fill", function (d, i) { return colors[i]; })
+         .attr("fill", function (d, i) { return colors[d[2]]; })
          .attr("stroke-width", 3);
     
     chart.append("g")
@@ -292,12 +348,12 @@ function createRadarChart(data, offset, line, id) {
     return chart;
 }
 
-function generateColors(total) {
-    var r = []; // hold the generated colors
-    var count = 1;
+function generateColors(names) {
+    var r = {}; // hold the generated colors
+    var count = 0;
     for (var prop in Colors.names) {
-        r.push(Colors.names[prop]);
-        if (count >= total)
+        r[names[count++]]=(Colors.names[prop]);
+        if (count >= names.length)
             break;
     }
     return r;
@@ -316,19 +372,33 @@ function Group(id, offset) {
     this.radarChart = createRadarChart(this.coordinates, offset, this.line, id);
     this.addMember = function (person) {
         this.members.push(person);
-        var members = this.members;
-        this.averageValues.forEach(function (item) {
-            item.value = members.reduce(function (prev, current) { return prev + current.values[item.name]; }, 0) / members.length;
-        });
+        updatePath.call(this);
+    }
+    this.removeMember = function () {
+        var removed = this.members.pop();
+        personList.push(removed);
+        console.log("REMOVED FROM RADAR: " + JSON.stringify(removed));
+        updatePath.call(this);
+    }
 
-        console.log("AVERAGE: "+JSON.stringify(this.averageValues));
-        updateCoordinates(this.averageValues, this.coordinates);
-        d3.select("#"+this.id)
-        .transition()
-        .attr("d", this.line)
-        .duration(1000)
-        .ease("linear")
-        .attr("transform", null);
+    function updatePath(){
+        if (this.members.length == 0) {
+            this.coordinates.splice(0, this.coordinates.length);
+        } else {
+            var members = this.members;
+            this.averageValues.forEach(function (item) {
+                item.value = members.reduce(function (prev, current) { return prev + findSingleItem(current.values, "name", item.name).value; }, 0) / (members.length > 0?members.length:1);
+            });
+            
+            console.log("AVERAGE: " + JSON.stringify(this.averageValues));
+            updateCoordinates(this.averageValues, this.coordinates);
+        }
+        d3.select("#" + this.id)
+            .transition()
+            .attr("d", this.line)
+            .duration(1000)
+            .ease("linear")
+            .attr("transform", null);
     }
 }
 

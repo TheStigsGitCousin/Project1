@@ -40,6 +40,8 @@
     <Content Include="public\data\data.tsv" />
     <Content Include="public\index.html" />
     <Content Include="README.md" />
+    <Content Include="Web.config" />
+    <None Include="Web.Debug.config" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="public\" />
